@@ -1,46 +1,29 @@
 import { useEffect, useState } from 'react';
 import type { AstroScotLocation } from '@astroscot/shared';
-import { calculatePlanetConditions, formatPlanetTime, type PlanetConditionsData, type PlanetCondition, type UpcomingPlanetOpportunity } from '../astronomy/planetConditions';
+import { calculatePlanetConditions, formatPlanetTime, type PlanetConditionsData, type PlanetCondition } from '../astronomy/planetConditions';
+
+const MAIN_PLANETS: PlanetCondition['name'][] = ['Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn'];
 
 function statusLabel(planet: PlanetCondition) {
-  if (planet.tier === 'low') return 'Very low in the sky';
-  if (planet.tier === 'advanced') return 'Difficult to see';
-  if (planet.status === 'good') return 'Good target';
-  if (planet.status === 'possible') return 'Possible';
-  return 'Skip tonight';
+  if (planet.tier === 'low') return 'Very low tonight';
+  if (planet.visible) return 'Visible tonight';
+  return 'Not visible tonight';
 }
 
-function practicalGuidance(planet: PlanetCondition) {
-  if (planet.tier === 'low') return 'Very low in the sky — you’ll need a clear, unobstructed horizon.';
-  if (planet.tier === 'advanced') return 'Difficult to see — try strong binoculars or a telescope under clear skies.';
-  return '';
+function timingText(planet: PlanetCondition, timezone: string) {
+  if (!planet.visible) return '';
+  if (planet.tier === 'low') {
+    return planet.bestTime ? `Best chance around ${formatPlanetTime(planet.bestTime, timezone)}.` : '';
+  }
+  if (planet.visibleFrom && planet.visibleUntil) {
+    return `Best time around ${formatPlanetTime(planet.bestTime ?? planet.visibleFrom, timezone)}.`;
+  }
+  return planet.bestTime ? `Best time around ${formatPlanetTime(planet.bestTime, timezone)}.` : '';
 }
 
-function heightDescription(altitude: number | null) {
-  if (altitude === null) return '';
-  if (altitude >= 45) return 'High in the sky';
-  if (altitude >= 25) return 'Fairly high in the sky';
-  if (altitude >= 12) return 'Low in the sky';
-  return 'Low and close to the horizon';
-}
-
-function formatApproximatePlanetTime(value: Date, timezone: string) {
-  const rounded = new Date(Math.round(value.getTime() / (15 * 60000)) * 15 * 60000);
-  return formatPlanetTime(rounded, timezone);
-}
-
-function viewingWindow(visibleFrom: Date | null, visibleUntil: Date | null, sunset: Date, timezone: string) {
-  if (!visibleFrom || !visibleUntil) return null;
-  const start = visibleFrom.getTime() - sunset.getTime() <= 20 * 60000 ? 'around sunset' : formatApproximatePlanetTime(visibleFrom, timezone);
-  return `Can be seen ${start === 'around sunset' ? start : `from about ${start}`} until about ${formatApproximatePlanetTime(visibleUntil, timezone)}.`;
-}
-
-function upcomingDescription(opportunity: UpcomingPlanetOpportunity, timezone: string) {
-  const durationDays = Math.round((opportunity.endDate.getTime() - opportunity.startDate.getTime()) / (24 * 60 * 60000)) + 1;
-  const duration = durationDays >= 21 ? 'several weeks' : durationDays >= 7 ? 'about a week or more' : 'a few evenings';
-  const when = opportunity.daysUntilStart <= 1 ? 'tomorrow' : `in about ${opportunity.daysUntilStart} days`;
-  const bestTime = opportunity.bestTime ? ` Best time will be around ${formatApproximatePlanetTime(opportunity.bestTime, timezone)}.` : '';
-  return `Starting ${when}, ${opportunity.name} should become a good evening target and remain visible for ${duration}.${bestTime}`;
+function directionText(planet: PlanetCondition) {
+  if (!planet.visible || !planet.direction) return '';
+  return `Look ${planet.direction.toLowerCase()}.`;
 }
 
 export function PlanetCard({ location }: { location: AstroScotLocation }) {
@@ -58,15 +41,12 @@ export function PlanetCard({ location }: { location: AstroScotLocation }) {
   }, [location]);
 
   if (!conditions) {
-    return <article className="info-card planet-card"><div className="card-header"><div><p className="card-eyebrow">Planets</p></div></div><p className="placeholder-note">Choose a location above and My Sky Ally will show tonight’s planet targets here.</p></article>;
+    return <article className="info-card planet-card"><div className="card-header"><div><p className="card-eyebrow">Planets</p></div></div><p className="placeholder-note">Choose a location above and My Sky Ally will show what the planets are doing tonight.</p></article>;
   }
 
-  const visiblePlanets = conditions.planets.filter((planet) => planet.visible && planet.bestTime && planet.bestTime.getTime() >= conditions.sunset.getTime() && planet.bestTime.getTime() <= conditions.windowEnd.getTime());
-  const upcomingPlanets = conditions.upcoming.slice(0, Math.max(0, 3 - visiblePlanets.length));
+  const planets = MAIN_PLANETS.map((name) => conditions.planets.find((planet) => planet.name === name)).filter((planet): planet is PlanetCondition => Boolean(planet));
 
-  return <article className="info-card planet-card"><div className="card-header"><div><p className="card-eyebrow">Planets</p></div></div><div className="planet-content"><div className="planet-list">
-    {visiblePlanets.map((planet) => <div className="planet-item" key={planet.name}><div className="planet-item-title"><span aria-hidden="true">{planet.symbol}</span><strong>{planet.name}</strong></div><span>{statusLabel(planet)} · {planet.direction ?? 'Look up'}</span><p>{viewingWindow(planet.visibleFrom, planet.visibleUntil, conditions.sunset, location.timezone) ?? 'Look during the evening.'} {planet.bestTime ? `Best time to look will be around ${formatApproximatePlanetTime(planet.bestTime, location.timezone)}.` : ''} {practicalGuidance(planet)} {planet.reason}{planet.bestAltitude !== null ? ` ${heightDescription(planet.bestAltitude)}.` : ''}</p></div>)}
-    {upcomingPlanets.map((planet) => <div className="planet-item" key={`upcoming-${planet.name}`}><div className="planet-item-title"><span aria-hidden="true">{planet.symbol}</span><strong>{planet.name}</strong></div><span>Coming soon · {planet.daysUntilStart <= 1 ? 'tomorrow' : `about ${planet.daysUntilStart} days`}</span><p>{upcomingDescription(planet, location.timezone)}</p></div>)}
-    {visiblePlanets.length === 0 && upcomingPlanets.length === 0 && <div className="planet-item"><div className="planet-item-title"><span aria-hidden="true">🔭</span><strong>No easy planet targets yet</strong></div><span>Looking ahead</span><p>My Sky Ally is checking the next few weeks for a good evening planet target.</p></div>}
+  return <article className="info-card planet-card"><div className="card-header"><div><p className="card-eyebrow">Planets</p></div></div><div className="planet-content"><p className="planet-intro">Here’s what the five main planets are doing tonight.</p><div className="planet-list">
+    {planets.map((planet) => <div className="planet-item" key={planet.name}><div className="planet-item-title"><span aria-hidden="true">{planet.symbol}</span><strong>{planet.name}</strong></div><span>{statusLabel(planet)}{planet.visible && planet.direction ? ` · ${planet.direction}` : ''}</span><p>{planet.reason} {directionText(planet)} {timingText(planet, location.timezone)}</p></div>)}
   </div></div></article>;
 }
