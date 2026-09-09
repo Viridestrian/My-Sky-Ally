@@ -11,16 +11,6 @@ function statusLabel(planet: PlanetCondition) {
   return 'Not easy to see tonight';
 }
 
-function sameLocalDate(a: Date, b: Date, timezone: string) {
-  const parts = (date: Date) => new Intl.DateTimeFormat('en-CA', {
-    timeZone: timezone.includes('Local timezone') ? Intl.DateTimeFormat().resolvedOptions().timeZone : timezone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(date);
-  return parts(a) === parts(b);
-}
-
 function isTomorrow(rise: Date | null, set: Date | null, timezone: string) {
   if (!rise || !set) return false;
   const safeTimezone = timezone.includes('Local timezone') ? Intl.DateTimeFormat().resolvedOptions().timeZone : timezone;
