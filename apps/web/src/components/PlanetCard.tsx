@@ -24,9 +24,18 @@ function isTomorrow(rise: Date | null, set: Date | null, timezone: string) {
 
 function timingText(planet: PlanetCondition, timezone: string) {
   const parts: string[] = [];
-  if (planet.rise) parts.push(`rises around ${formatPlanetHour(planet.rise, timezone)}`);
+  if (planet.rise) parts.push(`Rises around ${formatPlanetHour(planet.rise, timezone)}`);
   if (planet.set) parts.push(`sets around ${formatPlanetHour(planet.set, timezone)}${isTomorrow(planet.rise, planet.set, timezone) ? ' tomorrow' : ''}`);
-  return parts.length ? `${parts.join(' and ')}.` : 'Its rise or set time is not available for today.';
+  return parts.length ? `${parts.join(' and ')}.` : 'Rise or set time is not available for today.';
+}
+
+function descriptionText(planet: PlanetCondition) {
+  if (planet.tier === 'advanced') return 'Too faint to see without a strong telescope.';
+  if (planet.visible && planet.status === 'good') return 'High enough in the sky to be a good target.';
+  if (planet.visible && planet.status === 'possible') return 'Visible tonight, but not as easy to spot.';
+  if (planet.tier === 'low') return 'Very low in the sky, so trees and buildings may hide it.';
+  if (planet.rise) return 'It may be easier to spot after it rises.';
+  return planet.reason;
 }
 
 export function PlanetCard({ location }: { location: AstroScotLocation }) {
@@ -45,6 +54,6 @@ export function PlanetCard({ location }: { location: AstroScotLocation }) {
   const planets = PLANET_ORDER.map((name) => conditions.planets.find((planet) => planet.name === name)).filter((planet): planet is PlanetCondition => Boolean(planet));
 
   return <article className="info-card planet-card"><div className="card-header"><div><p className="card-eyebrow">Planets</p></div><span className="card-icon" aria-hidden="true">🪐</span></div><div className="planet-content"><div className="planet-list">
-    {planets.map((planet) => <div className="planet-item" key={planet.name}><div className="planet-item-title"><span aria-hidden="true">{planet.symbol}</span><strong>{planet.name}</strong></div><span>{statusLabel(planet)}</span><p>{planet.reason}</p><p>{timingText(planet, location.timezone)}{planet.tier !== 'advanced' && planet.direction ? ` Look toward the ${planet.direction.toLowerCase()} sky.` : ''}</p></div>)}
+    {planets.map((planet) => <div className="planet-item" key={planet.name}><div className="planet-item-title"><span aria-hidden="true">{planet.symbol}</span><strong>{planet.name}</strong></div><span>{statusLabel(planet)}</span><p>{descriptionText(planet)}</p><p>{timingText(planet, location.timezone)}{planet.tier !== 'advanced' && planet.direction ? ` Look toward the ${planet.direction.toLowerCase()} sky.` : ''}</p></div>)}
   </div></div></article>;
 }
