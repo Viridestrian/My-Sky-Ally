@@ -19,8 +19,8 @@ function timingText(planet: PlanetCondition, timezone: string) {
   }
   if (planet.set) {
     let setText = `sets around ${formatPlanetHour(planet.set, timezone)}`;
-    if (riseHour !== null && setHour !== null && riseHour >= 18 && setHour < 12) {
-      setText += ' tomorrow morning';
+    if (riseHour !== null && setHour !== null && riseHour >= 18) {
+      setText += setHour < 12 ? ' tomorrow morning' : ' tomorrow';
     }
     parts.push(setText);
   }
